@@ -8,6 +8,44 @@ PONG_SOUND = Sound.new('sfx/ballHit.wav')
 PING_SOUND = Sound.new('sfx/ballHit2.wav')
 BALL_RESET = Sound.new('sfx/ballReset.wav')
 
+class Score
+
+  def initialize(player1, enemy)
+    @Player_Score = player1
+    @Enemy_Score = enemy
+  end
+
+  def draw
+
+    Text.new(
+      @Player_Score,
+      x: Window.width/2-100, y: 30,
+      style: 'bold',
+      size: 20,
+      color: 'white',
+      z: 10
+    )
+    Text.new(
+      @Enemy_Score,
+      x: Window.width/2+100, y: 30,
+      style: 'bold',
+      size: 20,
+      color: 'white',
+      z: 10
+    )
+
+  end
+
+  def score_for_player
+    @Player_Score += 1
+  end
+
+  def score_for_enemy
+    @Enemy_Score += 1
+  end
+
+end
+
 class NextCoordinates
   def initialize(x, y, x_velocity, y_velocity)
     @x = x
@@ -165,7 +203,7 @@ end
 
 class Ball
   SIZE = 25
-  attr_reader :shape, :speed, :x_velocity, :y_velocity
+  attr_reader :shape, :speed, :x_velocity, :y_velocity, :PosX
 
   def initialize(speed)
     @speed = speed
@@ -247,6 +285,8 @@ end
 player = Paddle.new(:left, 5)
 enemy = Paddle.new(:right, 3.5)
 
+score = Score.new(0,0)
+
 ball = Ball.new(8)
 ball_trajectory = BallTrajectory.new(ball)
 
@@ -289,7 +329,16 @@ update do
   enemy.automove(ball_trajectory, last_hit_frame)
   enemy.draw
 
+  score.draw
+
   if ball.out_of_bounds?
+
+    if ball.PosX <= Window.width/2
+      score.score_for_enemy
+    else
+      score.score_for_player
+    end
+
     ball = Ball.new(8)
     ball_trajectory = BallTrajectory.new(ball)
     BALL_RESET.play
