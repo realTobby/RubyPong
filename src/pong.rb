@@ -2,11 +2,20 @@ require("ruby2d")
 
 set background: 'black'
 
+PONG_SOUND = Sound.new('sfx/ballHit.wav')
+PING_SOUND = Sound.new('sfx/ballHit2.wav')
+
+BALL_RESET = Sound.new('sfx/ballReset.wav')
+
 class Paddle
   HEIGHT = 150
+  JITTER_CORRECTION = 4
   attr_writer :direction
 
+  attr_reader :side
+
   def initialize(side, speed)
+    @side = side
     @move_speed = speed
     @direction = nil
     @PosY = 200
@@ -37,12 +46,18 @@ class Paddle
   end
 
   def automove(ball)
-    if ball.y_middle > y_middle
+    if ball.y_middle > y_middle + JITTER_CORRECTION
       @PosY += @move_speed
-    elsif ball.y_middle < y_middle
+    elsif ball.y_middle < y_middle -  JITTER_CORRECTION
       @PosY -= @move_speed  
     end
   end
+
+  def y1
+    @shape.y1
+  end
+
+
 
   private
 
@@ -61,10 +76,10 @@ class Ball
   attr_reader :shape
   attr_reader :speed
   def initialize(speed)
-    
     @speed = speed
     
-    Reset()
+    @PosX = Window.width/2
+    @PosY = Window.height/2
 
     @y_velocity = speed
     @x_velocity = -speed
@@ -74,14 +89,10 @@ class Ball
     @shape = Square.new(x: @PosX, y: @PosY, size: SIZE, color: 'white')
   end
 
-  def Reset
-    @PosX = 320
-    @PosY = 400
-  end
-
   def move
     if hit_bottom? || hit_top?
       @y_velocity = @y_velocity * -1
+      PING_SOUND.play
     end
 
       @PosX = @PosX + @x_velocity
@@ -89,8 +100,26 @@ class Ball
   
   end
 
-  def bounce
-  @x_velocity = @x_velocity * -1
+  def bounce_off(paddle)
+    if @last_hit_side != paddle.side
+
+      position = (@shape.y1 - paddle.y1) / Paddle::HEIGHT.to_f
+      angle = position.clamp(0.2, 0.8) * Math::PI
+
+      # puts "position: #{position}"
+
+      if paddle.side == :left
+        @x_velocity = Math.sin(angle) * @speed
+        @y_velocity = -Math.cos(angle) * @speed
+      end
+
+      if paddle.side == :right
+        @x_velocity = -Math.sin(angle) * @speed
+        @y_velocity = -Math.cos(angle) * @speed
+      end
+
+      @last_hit_side = paddle.side
+    end
   end
 
   def y_middle
@@ -100,6 +129,10 @@ class Ball
 
   def out_of_bounds?
     @PosX <= 0 || @shape.x2 >= Window.width
+  end
+
+  def gainSpeed
+    @speed += 1
   end
 
   private 
@@ -112,6 +145,8 @@ class Ball
     @PosY <= 0
   end
 
+
+
 end
 
 player = Paddle.new(:left, 5)
@@ -119,16 +154,24 @@ enemy = Paddle.new(:right, 5)
 
 ball = Ball.new(8)
 
+bgm = Music.new('bgm/Lines of Code.mp3')
+bgm.loop = true
+bgm.play
+
 # MAIN GAME LOOP
 update do
   clear
 
   if player.hit_ball?(ball)
-    ball.bounce
+    ball.bounce_off(player)
+    PONG_SOUND.play
+    ball.gainSpeed()
   end
 
   if enemy.hit_ball?(ball)
-    ball.bounce
+    ball.bounce_off(enemy)
+    PONG_SOUND.play
+    ball.gainSpeed()
   end
 
   ball.move
@@ -141,13 +184,14 @@ update do
   enemy.draw
 
   if ball.out_of_bounds?
-    ball = Ball.new(ball.speed+1)
+    ball = Ball.new(8)
+    BALL_RESET.play
   end
 
 end
 
 
-on :key_down do |event|
+on :key_held do |event|
   if event.key == 'up'
     player.direction = :up
   elsif event.key == 'down'
