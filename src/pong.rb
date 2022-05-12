@@ -7,6 +7,20 @@ PING_SOUND = Sound.new('sfx/ballHit2.wav')
 
 BALL_RESET = Sound.new('sfx/ballReset.wav')
 
+class DividingLine
+  WIDTH = 10
+  HEIGHT = 25
+  NUMBER_OF_LINES = 10
+
+  def draw
+    NUMBER_OF_LINES.times do |i|
+      Rectangle.new(color: 'white', x: (Window.width+WIDTH)/2, y: (Window.height / NUMBER_OF_LINES) * i, height: HEIGHT, width: WIDTH)
+    end
+
+  end
+
+end
+
 class Paddle
   HEIGHT = 150
   JITTER_CORRECTION = 4
@@ -161,6 +175,8 @@ bgm.play
 # MAIN GAME LOOP
 update do
   clear
+
+  DividingLine.new.draw
 
   if player.hit_ball?(ball)
     ball.bounce_off(player)
