@@ -2,15 +2,83 @@ require("ruby2d")
 
 set background: 'black'
 
+set width: 786
+
 PONG_SOUND = Sound.new('sfx/ballHit.wav')
 PING_SOUND = Sound.new('sfx/ballHit2.wav')
-
 BALL_RESET = Sound.new('sfx/ballReset.wav')
+
+class NextCoordinates
+  def initialize(x, y, x_velocity, y_velocity)
+    @x = x
+    @y = y
+    @X_velocity = x_velocity
+    @Y_velocity = y_velocity
+  end
+
+  def x
+    @x + (@X_velocity * [x_length, y_length].min)
+  end
+
+  def y
+    @y + (@Y_velocity * [x_length, y_length].min)
+  end
+
+  def hit_top_or_bottom?
+    x_length > y_length
+  end
+
+  private 
+
+  def x_length
+    if @X_velocity > 0
+      (Window.width - 60 - @x) / @X_velocity
+    else
+      (@x - 60) / (-@X_velocity)
+    end
+  end
+
+  def y_length
+    if @Y_velocity > 0
+      (Window.height - @y) / @Y_velocity
+    else
+      (@y) / (-@Y_velocity)
+    end
+  end
+
+
+
+end
+
+class BallTrajectory
+
+  def initialize(ball)
+    @ball = ball
+  end
+
+  def draw
+    next_coords = NextCoordinates.new(@ball.x_middle, @ball.y_middle, @ball.x_velocity, @ball.y_velocity)
+    line = Line.new(x1: @ball.x_middle, y1: @ball.y_middle, x2: next_coords.x , y2: next_coords.y, color:'red', opacity: 0)
+    if next_coords.hit_top_or_bottom?
+      final_coords = NextCoordinates.new(next_coords.x, next_coords.y, @ball.x_velocity, -@ball.y_velocity)
+      Line.new(x1: next_coords.x, y1: next_coords.y, x2: final_coords.x , y2: final_coords.y, color:'red', opacity: 0)
+    else
+      line
+    end
+  end
+
+  def y_middle
+    draw.y2
+  end
+
+
+end
+
 
 class DividingLine
   WIDTH = 10
   HEIGHT = 25
-  NUMBER_OF_LINES = 10
+  NUMBER_OF_LINES = 8
 
   def draw
     NUMBER_OF_LINES.times do |i|
@@ -24,6 +92,9 @@ end
 class Paddle
   HEIGHT = 150
   JITTER_CORRECTION = 4
+
+  ENEMY_MOVE_DELAY_FRAMES = 60
+
   attr_writer :direction
 
   attr_reader :side
@@ -36,7 +107,7 @@ class Paddle
     if side == :left
       @PosX = 40
     else
-      @PosX = 600
+      @PosX = Window.width-60
     end
   end
 
@@ -59,12 +130,19 @@ class Paddle
     end
   end
 
-  def automove(ball)
-    if ball.y_middle > y_middle + JITTER_CORRECTION
-      @PosY += @move_speed
-    elsif ball.y_middle < y_middle -  JITTER_CORRECTION
-      @PosY -= @move_speed  
+  def automove(ball_trajectory, last_hit_frame)
+
+    if last_hit_frame + ENEMY_MOVE_DELAY_FRAMES < Window.frames
+      if ball_trajectory.y_middle > y_middle + JITTER_CORRECTION
+        @PosY += @move_speed
+      elsif ball_trajectory.y_middle < y_middle -  JITTER_CORRECTION
+        @PosY -= @move_speed  
+      end
     end
+
+
+
+    
   end
 
   def y1
@@ -87,16 +165,16 @@ end
 
 class Ball
   SIZE = 25
-  attr_reader :shape
-  attr_reader :speed
+  attr_reader :shape, :speed, :x_velocity, :y_velocity
+
   def initialize(speed)
     @speed = speed
     
     @PosX = Window.width/2
     @PosY = Window.height/2
 
-    @y_velocity = speed
-    @x_velocity = -speed
+    @y_velocity = [-speed, speed].sample
+    @x_velocity = [-speed, speed].sample
   end
 
   def draw
@@ -140,13 +218,16 @@ class Ball
     @PosY + (SIZE / 2)
   end
 
+  def x_middle 
+    @PosX + (SIZE / 2)
+  end
 
   def out_of_bounds?
     @PosX <= 0 || @shape.x2 >= Window.width
   end
 
   def gainSpeed
-    @speed += 1
+    @speed += 0.2
   end
 
   private 
@@ -164,13 +245,18 @@ class Ball
 end
 
 player = Paddle.new(:left, 5)
-enemy = Paddle.new(:right, 5)
+enemy = Paddle.new(:right, 3.5)
 
 ball = Ball.new(8)
+ball_trajectory = BallTrajectory.new(ball)
+
 
 bgm = Music.new('bgm/Lines of Code.mp3')
 bgm.loop = true
 bgm.play
+
+last_hit_frame = 0
+
 
 # MAIN GAME LOOP
 update do
@@ -182,25 +268,30 @@ update do
     ball.bounce_off(player)
     PONG_SOUND.play
     ball.gainSpeed()
+    last_hit_frame = Window.frames
   end
 
   if enemy.hit_ball?(ball)
     ball.bounce_off(enemy)
     PONG_SOUND.play
     ball.gainSpeed()
+    last_hit_frame = Window.frames
   end
-
-  ball.move
-  ball.draw
 
   player.move
   player.draw
 
-  enemy.automove(ball)
+  ball.move
+  ball.draw
+
+  ball_trajectory.draw
+
+  enemy.automove(ball_trajectory, last_hit_frame)
   enemy.draw
 
   if ball.out_of_bounds?
     ball = Ball.new(8)
+    ball_trajectory = BallTrajectory.new(ball)
     BALL_RESET.play
   end
 
