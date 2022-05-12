@@ -1,6 +1,6 @@
 require("ruby2d")
 
-set background: 'green'
+set background: 'black'
 
 class Paddle
   HEIGHT = 150
@@ -71,7 +71,7 @@ class Ball
   end
 
   def draw
-    @shape = Square.new(x: @PosX, y: @PosY, size: SIZE, color: 'yellow')
+    @shape = Square.new(x: @PosX, y: @PosY, size: SIZE, color: 'white')
   end
 
   def Reset
@@ -80,9 +80,6 @@ class Ball
   end
 
   def move
-
-    
-
     if hit_bottom? || hit_top?
       @y_velocity = @y_velocity * -1
     end
